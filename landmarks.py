@@ -5,16 +5,24 @@ import numpy as np
 class LandmarkExtractor:
     def __init__(self, max_faces=5):
         """
-        Initializes MediaPipe FaceMesh to extract 478 precise facial landmarks.
-        `refine_landmarks=True` ensures we get detailed eye center and iris tracking.
+        Initializes MediaPipe FaceLandmarker via the new Tasks API.
+        Extracts 478 precise facial landmarks.
         """
-        self.mp_face_mesh = mp.solutions.face_mesh
-        self.face_mesh = self.mp_face_mesh.FaceMesh(
-            max_num_faces=max_faces,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
+        BaseOptions = mp.tasks.BaseOptions
+        FaceLandmarker = mp.tasks.vision.FaceLandmarker
+        FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
+        VisionRunningMode = mp.tasks.vision.RunningMode
+        
+        options = FaceLandmarkerOptions(
+            base_options=BaseOptions(model_asset_path='models/face_landmarker.task'),
+            running_mode=VisionRunningMode.IMAGE,
+            num_faces=max_faces,
+            min_face_detection_confidence=0.5,
+            min_face_presence_confidence=0.5,
+            output_face_blendshapes=False,
+            output_facial_transformation_matrixes=False
         )
+        self.landmarker = FaceLandmarker.create_from_options(options)
 
     def extract_landmarks(self, frame):
         """
@@ -23,17 +31,15 @@ class LandmarkExtractor:
         """
         # MediaPipe expects RGB
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
         
-        # Performance optimization: pass by reference
-        rgb_frame.flags.writeable = False
-        results = self.face_mesh.process(rgb_frame)
-        rgb_frame.flags.writeable = True
+        results = self.landmarker.detect(mp_image)
         
         extracted_faces = []
         h, w = frame.shape[:2]
         
-        if results.multi_face_landmarks:
-            for face_landmarks in results.multi_face_landmarks:
+        if results.face_landmarks:
+            for face_landmarks in results.face_landmarks:
                 landmarks_2d = []
                 landmarks_3d = []
                 
@@ -41,7 +47,7 @@ class LandmarkExtractor:
                 x_min, y_min = w, h
                 x_max, y_max = 0, 0
                 
-                for lm in face_landmarks.landmark:
+                for lm in face_landmarks:
                     x, y = int(lm.x * w), int(lm.y * h)
                     landmarks_2d.append((x, y))
                     landmarks_3d.append((lm.x, lm.y, lm.z))
