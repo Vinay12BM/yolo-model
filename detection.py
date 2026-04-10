@@ -11,7 +11,7 @@ class AnimalDetector:
     def __init__(self, model_path="yolov8n.pt", conf_threshold=0.4):
         """
         Initializes the YOLOv8 object detector for animals.
-        Note: yolov8n.pt will automatically download if not present in the current dir.
+        Optimized for CPU-based cloud environments (no tracking).
         """
         try:
             self.model = YOLO(model_path)
@@ -22,14 +22,20 @@ class AnimalDetector:
 
     def detect_and_track(self, frame):
         """
-        Detects and tracks animals in a frame using YOLO.
-        Returns a list of dictionaries containing animal info:
-        [{'bbox': (x1, y1, x2, y2), 'conf': float, 'id': int, 'class_name': str, 'class_id': int}, ...]
+        Detects animals in a frame using YOLO Predict.
+        Note: We switched from .track() to .predict() to save memory/CPU on Render.
         """
-        # We use model.track to maintain consistent IDs across frames for tracking
-        # We pass classes list to YOLO to only detect those classes
         target_classes = list(ANIMAL_CLASSES.keys())
-        results = self.model.track(frame, persist=True, conf=self.conf_threshold, classes=target_classes, verbose=False)
+        
+        # We use .predict instead of .track for lower resource consumption
+        # We also use persist=False to stop tracking ID management
+        results = self.model.predict(
+            frame, 
+            conf=self.conf_threshold, 
+            classes=target_classes, 
+            verbose=False,
+            device='cpu' # Force CPU to avoid GPU-related RAM overhead
+        )
         
         animals = []
         if results and len(results) > 0:
@@ -39,13 +45,7 @@ class AnimalDetector:
                 confs = result.boxes.conf.cpu().numpy()
                 class_ids = result.boxes.cls.int().cpu().numpy()
                 
-                # Extract tracking IDs if tracking is successful
-                if result.boxes.id is not None:
-                    track_ids = result.boxes.id.int().cpu().numpy()
-                else:
-                    track_ids = [-1] * len(boxes)
-                
-                for box, conf, track_id, cls_id in zip(boxes, confs, track_ids, class_ids):
+                for box, conf, cls_id in zip(boxes, confs, class_ids):
                     x1, y1, x2, y2 = map(int, box)
                     
                     # Basic bound checking
@@ -59,7 +59,7 @@ class AnimalDetector:
                     animals.append({
                         'bbox': (x1, y1, x2, y2),
                         'conf': float(conf),
-                        'id': int(track_id),
+                        'id': -1, # Tracking disabled for memory efficiency
                         'class_id': int(cls_id),
                         'class_name': ANIMAL_CLASSES.get(int(cls_id), "Unknown Animal")
                     })

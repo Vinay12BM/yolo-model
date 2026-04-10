@@ -42,6 +42,12 @@ def process():
         # Run Detection
         animals = detector.detect_and_track(frame)
         
+        # Explicitly clear image from memory
+        del frame
+        
+        found = False
+        class_name = ""
+        
         if animals:
             # We found something! Update the global alert
             animal = animals[0]
@@ -51,9 +57,14 @@ def process():
                 "timestamp": time.time()
             }
             print(f"Cloud Detected: {animal['class_name']}")
-            return jsonify({"status": "success", "found": True, "class": animal['class_name']})
+            found = True
+            class_name = animal['class_name']
         
-        return jsonify({"status": "success", "found": False})
+        # Immediate cleanup for Render memory limits
+        import gc
+        gc.collect()
+        
+        return jsonify({"status": "success", "found": found, "class": class_name})
 
     except Exception as e:
         print(f"Processing Error: {e}")
