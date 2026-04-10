@@ -6,10 +6,14 @@ from notification import Notifier
 def main():
     print("Initializing components...")
     
+    # --- CONFIGURATION ---
+    # Put your Render URL here once deployed, e.g., "https://agri-guardian.onrender.com"
+    RENDER_URL = None 
+    
     # Initialize YOLOv8 default detector for animals
     detector = AnimalDetector(model_path="yolov8n.pt", conf_threshold=0.5)
-    # Initialize notification engine
-    notifier = Notifier(log_file="intrusion_log.txt", cooldown_seconds=10)
+    # Initialize notification engine with optional remote dashboard support
+    notifier = Notifier(log_file="intrusion_log.txt", cooldown_seconds=10, remote_url=RENDER_URL)
     
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():

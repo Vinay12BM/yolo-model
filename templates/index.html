@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agri-Guardian | Security Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #22c55e;
+            --alert: #ef4444;
+            --text: #f8fafc;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            padding: 2rem 0;
+            background: linear-gradient(to bottom, #1e293b, #0f172a);
+            text-align: center;
+            border-bottom: 1px solid #334155;
+            margin-bottom: 2rem;
+        }
+
+        h1 { margin: 0; font-weight: 700; letter-spacing: -0.5px; }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            margin-top: 10px;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px;
+        }
+
+        #alert-box {
+            display: none;
+            background: rgba(239, 68, 68, 0.15);
+            border: 2px solid var(--alert);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.02); box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .alert-title { color: var(--alert); font-weight: 700; font-size: 2rem; margin: 0;}
+        .alert-details { font-size: 1.2rem; margin-top: 10px; opacity: 0.9; }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            border: 1px solid #334155;
+        }
+
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 1rem 0;
+            border-bottom: 1px solid #334155;
+        }
+        .log-item:last-child { border: none; }
+        .log-class { font-weight: 600; text-transform: uppercase; color: #38bdf8; }
+        .log-time { color: #94a3b8; font-size: 0.9rem; }
+
+        #audio-controls {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Agri-Guardian Dashboard</h1>
+    <div class="status-badge" id="conn-status">SYSTEM OFFLINE</div>
+</header>
+
+<div class="container">
+    <div id="alert-box">
+        <p class="alert-title">INTRUSION DETECTED</p>
+        <p class="alert-details" id="current-alert">No Animals Detected</p>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top: 0;">Recent Activity</h2>
+        <div id="logs">
+            <p style="color: #94a3b8;">Waiting for detection data...</p>
+        </div>
+    </div>
+
+    <div id="audio-controls">
+        <button onclick="enableAudio()" id="audio-btn" style="background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">
+            Enable Alert Audio
+        </button>
+        <p id="audio-msg">Browsers require interaction to play sound.</p>
+    </div>
+</div>
+
+<audio id="alert-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
+<script>
+    const alertBox = document.getElementById('alert-box');
+    const alertText = document.getElementById('current-alert');
+    const logsDiv = document.getElementById('logs');
+    const statusBadge = document.getElementById('conn-status');
+    const alertSound = document.getElementById('alert-sound');
+    let audioEnabled = false;
+
+    function enableAudio() {
+        alertSound.play().then(() => {
+            alertSound.pause();
+            audioEnabled = true;
+            document.getElementById('audio-btn').style.opacity = '0.5';
+            document.getElementById('audio-btn').innerText = 'Audio Ready';
+            document.getElementById('audio-msg').innerText = 'Sound will play on next alert.';
+        }).catch(e => console.error("Audio activation failed", e));
+    }
+
+    const evtSource = new EventSource("/stream");
+
+    evtSource.onopen = () => {
+        statusBadge.innerText = "SYSTEM ACTIVE";
+        statusBadge.style.color = "#22c55e";
+        statusBadge.style.borderColor = "#22c55e";
+    };
+
+    evtSource.onerror = () => {
+        statusBadge.innerText = "LINK DISCONNECTED";
+        statusBadge.style.color = "#ef4444";
+        statusBadge.style.borderColor = "#ef4444";
+    };
+
+    evtSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        triggerUI(data);
+    };
+
+    function triggerUI(data) {
+        // Show Alert Box
+        alertBox.style.display = 'block';
+        alertText.innerText = `${data.class_name.toUpperCase()} detected at ${data.timestamp}`;
+        
+        // Play Sound
+        if (audioEnabled) {
+            alertSound.play();
+        }
+
+        // Add to logs
+        const logItem = document.createElement('div');
+        logItem.className = 'log-item';
+        logItem.innerHTML = `<span class="log-class">${data.class_name}</span><span class="log-time">${data.timestamp}</span>`;
+        if (logsDiv.firstChild && logsDiv.firstChild.tagName === 'P') {
+            logsDiv.innerHTML = '';
+        }
+        logsDiv.prepend(logItem);
+
+        // Hide alert box after 8 seconds
+        setTimeout(() => {
+            alertBox.style.display = 'none';
+        }, 8000);
+    }
+</script>
+
+</body>
+</html>
