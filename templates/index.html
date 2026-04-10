@@ -3,192 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agri-Guardian | Security Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <title>Agri-Guardian | Cloud Brain</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg: #0f172a;
-            --card-bg: #1e293b;
-            --accent: #22c55e;
-            --alert: #ef4444;
-            --text: #f8fafc;
-        }
+        :root { --bg: #0f172a; --card-bg: #1e293b; --accent: #22c55e; --alert: #ef4444; --text: #f8fafc; }
+        body { font-family: 'Outfit', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+        header { width: 100%; padding: 1.5rem 0; background: linear-gradient(135deg, #1e293b, #0f172a); text-align: center; border-bottom: 1px solid #334155; }
+        .container { width: 90%; max-width: 600px; padding: 2rem 0; text-align: center; }
+        
+        #video-container { position: relative; width: 100%; border-radius: 20px; overflow: hidden; border: 4px solid #334155; background: #000; aspect-ratio: 4/3; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        canvas { display: none; }
 
-        body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
+        .status-panel { margin-top: 1.5rem; padding: 1rem; background: var(--card-bg); border-radius: 12px; border: 1px solid #334155; }
+        .indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+        .scanning { color: #94a3b8; font-size: 0.9rem; font-weight: 600; letter-spacing: 1px; }
 
-        header {
-            width: 100%;
-            padding: 2rem 0;
-            background: linear-gradient(to bottom, #1e293b, #0f172a);
-            text-align: center;
-            border-bottom: 1px solid #334155;
-            margin-bottom: 2rem;
-        }
+        #detection-alert { display: none; margin-top: 1.5rem; padding: 1rem; background: rgba(239, 68, 68, 0.2); border: 2px solid var(--alert); border-radius: 12px; color: var(--alert); font-weight: 700; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-        h1 { margin: 0; font-weight: 700; letter-spacing: -0.5px; }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            background: rgba(34, 197, 94, 0.1);
-            color: var(--accent);
-            border: 1px solid var(--accent);
-            margin-top: 10px;
-        }
-
-        .container {
-            width: 90%;
-            max-width: 800px;
-        }
-
-        #alert-box {
-            display: none;
-            background: rgba(239, 68, 68, 0.15);
-            border: 2px solid var(--alert);
-            border-radius: 12px;
-            padding: 2rem;
-            text-align: center;
-            margin-bottom: 2rem;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { transform: scale(1.02); box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-
-        .alert-title { color: var(--alert); font-weight: 700; font-size: 2rem; margin: 0;}
-        .alert-details { font-size: 1.2rem; margin-top: 10px; opacity: 0.9; }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 2rem;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-            border: 1px solid #334155;
-        }
-
-        .log-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 1rem 0;
-            border-bottom: 1px solid #334155;
-        }
-        .log-item:last-child { border: none; }
-        .log-class { font-weight: 600; text-transform: uppercase; color: #38bdf8; }
-        .log-time { color: #94a3b8; font-size: 0.9rem; }
-
-        #audio-controls {
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            color: #94a3b8;
-        }
+        button { background: var(--accent); color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; cursor: pointer; margin-top: 20px; transition: 0.3s; }
+        button:hover { filter: brightness(1.2); transform: translateY(-2px); }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>Agri-Guardian Dashboard</h1>
-    <div class="status-badge" id="conn-status">SYSTEM OFFLINE</div>
+    <h1>Agri-Guardian Cloud Brain</h1>
 </header>
 
 <div class="container">
-    <div id="alert-box">
-        <p class="alert-title">INTRUSION DETECTED</p>
-        <p class="alert-details" id="current-alert">No Animals Detected</p>
+    <div id="video-container">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="snapshot"></canvas>
     </div>
 
-    <div class="card">
-        <h2 style="margin-top: 0;">Recent Activity</h2>
-        <div id="logs">
-            <p style="color: #94a3b8;">Waiting for detection data...</p>
+    <div id="detection-alert">
+        ⚠️ ANIMAL DETECTED: <span id="detected-class">---</span>
+    </div>
+
+    <div class="status-panel">
+        <div id="status-text" class="scanning">
+            <span class="indicator" id="status-indicator"></span> 
+            SYSTEM INITIALIZING...
         </div>
+        <button id="start-btn">ENABLE CLOUD CAMERA</button>
     </div>
 
-    <div id="audio-controls">
-        <button onclick="enableAudio()" id="audio-btn" style="background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">
-            Enable Alert Audio
-        </button>
-        <p id="audio-msg">Browsers require interaction to play sound.</p>
-    </div>
+    <p style="color: #64748b; font-size: 0.8rem; margin-top: 2rem;">
+        This device is now the <b>Camera Source</b>. <br>
+        Run <code>main.py</code> on your laptop to receive the alarm.
+    </p>
 </div>
 
-<audio id="alert-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
-
 <script>
-    const alertBox = document.getElementById('alert-box');
-    const alertText = document.getElementById('current-alert');
-    const logsDiv = document.getElementById('logs');
-    const statusBadge = document.getElementById('conn-status');
-    const alertSound = document.getElementById('alert-sound');
-    let audioEnabled = false;
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('snapshot');
+    const startBtn = document.getElementById('start-btn');
+    const statusText = document.getElementById('status-text');
+    const statusIndicator = document.getElementById('status-indicator');
+    const alertDiv = document.getElementById('detection-alert');
+    const alertClass = document.getElementById('detected-class');
+    
+    let isProcessing = false;
 
-    function enableAudio() {
-        alertSound.play().then(() => {
-            alertSound.pause();
-            audioEnabled = true;
-            document.getElementById('audio-btn').style.opacity = '0.5';
-            document.getElementById('audio-btn').innerText = 'Audio Ready';
-            document.getElementById('audio-msg').innerText = 'Sound will play on next alert.';
-        }).catch(e => console.error("Audio activation failed", e));
+    async function setupCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+            video.srcObject = stream;
+            statusText.innerText = "CLOULD MONITORING ACTIVE";
+            statusIndicator.classList.add('active');
+            startBtn.style.display = 'none';
+            
+            // Start detection loop
+            setInterval(captureAndProcess, 1500); // Check every 1.5 seconds
+        } catch (err) {
+            console.error("Camera access denied", err);
+            statusText.innerText = "ERROR: CAMERA ACCESS DENIED";
+        }
     }
 
-    const evtSource = new EventSource("/stream");
+    async function captureAndProcess() {
+        if (isProcessing) return;
+        isProcessing = true;
 
-    evtSource.onopen = () => {
-        statusBadge.innerText = "SYSTEM ACTIVE";
-        statusBadge.style.color = "#22c55e";
-        statusBadge.style.borderColor = "#22c55e";
-    };
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    evtSource.onerror = () => {
-        statusBadge.innerText = "LINK DISCONNECTED";
-        statusBadge.style.color = "#ef4444";
-        statusBadge.style.borderColor = "#ef4444";
-    };
+        const imageData = canvas.toDataURL('image/jpeg', 0.6); // Compress to 60% quality to save bandwidth
 
-    evtSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        triggerUI(data);
-    };
+        try {
+            const response = await fetch('/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData })
+            });
+            const result = await response.json();
 
-    function triggerUI(data) {
-        // Show Alert Box
-        alertBox.style.display = 'block';
-        alertText.innerText = `${data.class_name.toUpperCase()} detected at ${data.timestamp}`;
-        
-        // Play Sound
-        if (audioEnabled) {
-            alertSound.play();
+            if (result.found) {
+                alertDiv.style.display = 'block';
+                alertClass.innerText = result.class.toUpperCase();
+                setTimeout(() => { alertDiv.style.display = 'none'; }, 3000);
+            }
+        } catch (err) {
+            console.error("Detection sync failed", err);
         }
 
-        // Add to logs
-        const logItem = document.createElement('div');
-        logItem.className = 'log-item';
-        logItem.innerHTML = `<span class="log-class">${data.class_name}</span><span class="log-time">${data.timestamp}</span>`;
-        if (logsDiv.firstChild && logsDiv.firstChild.tagName === 'P') {
-            logsDiv.innerHTML = '';
-        }
-        logsDiv.prepend(logItem);
-
-        // Hide alert box after 8 seconds
-        setTimeout(() => {
-            alertBox.style.display = 'none';
-        }, 8000);
+        isProcessing = false;
     }
+
+    startBtn.addEventListener('click', setupCamera);
 </script>
 
 </body>

@@ -1,50 +1,75 @@
 import time
 import json
+import base64
+import numpy as np
+import cv2
 from flask import Flask, Response, render_template, request, jsonify
+from detection import AnimalDetector
 
 app = Flask(__name__)
 
-# Basic storage for the most recent intrusion
-# In a production app, this would be a database or a redis queue
-latest_intrusion = None
+# Initialize the detector on the server
+detector = AnimalDetector(model_path="yolov8n.pt", conf_threshold=0.5)
 
-def event_stream():
-    """Returns a server-sent event if a new intrusion is detected."""
-    global latest_intrusion
-    last_sent = None
-    
-    while True:
-        if latest_intrusion and latest_intrusion != last_sent:
-            yield f"data: {json.dumps(latest_intrusion)}\n\n"
-            last_sent = latest_intrusion.copy()
-        time.sleep(1)
+# Global storage for the latest alert
+# We use a timestamp to allow the local client to detect "new" alerts
+latest_alert = {
+    "detected": False,
+    "class_name": "",
+    "timestamp": 0
+}
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/report', methods=['POST'])
-def report():
-    global latest_intrusion
-    data = request.json
-    if not data:
-        return jsonify({"status": "error", "message": "No data"}), 400
-    
-    # Store the intrusion details
-    latest_intrusion = {
-        "class_name": data.get("class_name", "Unknown"),
-        "confidence": data.get("confidence", 0),
-        "timestamp": data.get("timestamp", ""),
-        "id": time.time() # Unique ID to trigger the event stream
-    }
-    
-    print(f"Intrusion Reported: {latest_intrusion['class_name']}")
-    return jsonify({"status": "success"}), 200
+@app.route('/process', methods=['POST'])
+def process():
+    global latest_alert
+    try:
+        data = request.json
+        if not data or 'image' not in data:
+            return jsonify({"status": "error", "message": "No image"}), 400
 
-@app.route('/stream')
-def stream():
-    return Response(event_stream(), mimetype="text/event-stream")
+        # Decode base64 image
+        img_data = base64.b64decode(data['image'].split(',')[1])
+        nparr = np.frombuffer(img_data, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return jsonify({"status": "error", "message": "Invalid image"}), 400
+
+        # Run Detection
+        animals = detector.detect_and_track(frame)
+        
+        if animals:
+            # We found something! Update the global alert
+            animal = animals[0]
+            latest_alert = {
+                "detected": True,
+                "class_name": animal['class_name'],
+                "timestamp": time.time()
+            }
+            print(f"Cloud Detected: {animal['class_name']}")
+            return jsonify({"status": "success", "found": True, "class": animal['class_name']})
+        
+        return jsonify({"status": "success", "found": False})
+
+    except Exception as e:
+        print(f"Processing Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/poll', methods=['GET'])
+def poll():
+    """Endpoint for the local main.py to check for alerts."""
+    return jsonify(latest_alert)
+
+@app.route('/clear', methods=['POST'])
+def clear():
+    """Allow the local client to clear the alert state after beeping."""
+    global latest_alert
+    latest_alert["detected"] = False
+    return jsonify({"status": "cleared"})
 
 if __name__ == '__main__':
-    # For local testing
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)
