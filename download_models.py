@@ -19,11 +19,8 @@ def download_file(url, output_path):
         print("Please ensure you have internet access and the URL is reachable.")
 
 if __name__ == "__main__":
-    # YOLOv8 face model from public community source
-    yolo_face_url = "https://github.com/akanametov/yolo-face/releases/download/1.0.0/yolov8n-face.pt"
-    # MediaPipe Face Landmarker Model
-    mp_landmarker_url = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+    # Standard YOLOv8 model for general object detection (including animals)
+    yolov8n_url = "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.pt"
     
-    os.makedirs("models", exist_ok=True)
-    download_file(yolo_face_url, "models/yolov8n-face.pt")
-    download_file(mp_landmarker_url, "models/face_landmarker.task")
+    # Download directly to project root as the detector looks there by default
+    download_file(yolov8n_url, "yolov8n.pt")
