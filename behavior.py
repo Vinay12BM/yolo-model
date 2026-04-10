@@ -63,7 +63,11 @@ class BehaviorAnalyzer:
         roll = angles[2]
         
         # Normalize/adjust based on the generic 3D model orientation
-        # This will be dependent on how your camera maps space, empirical adjustment
+        if pitch > 90:
+            pitch -= 180
+        elif pitch < -90:
+            pitch += 180
+            
         return pitch, yaw, roll
 
     def get_ear(self, landmarks_2d):
